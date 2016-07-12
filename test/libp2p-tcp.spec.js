@@ -6,6 +6,7 @@ const TCP = require('../src')
 const net = require('net')
 const multiaddr = require('multiaddr')
 const Connection = require('interface-connection').Connection
+const createTcpServer = require('../src/tcp-server')
 
 describe('instantiate the transport', () => {
   it('create', (done) => {
@@ -26,6 +27,26 @@ describe('listen', () => {
 
   beforeEach(() => {
     tcp = new TCP()
+  })
+
+  it.only('simple', (done) => {
+    const mh = multiaddr('/ip4/127.0.0.1/tcp/9090')
+
+    const server = createTcpServer(mh)
+    server.connections
+      .subscribe((conn) => {
+        conn
+          .map((x) => x + '?')
+          .map((x) => x + '!')
+          .map((x) => x + '!')
+          .subscribe((x) => {
+            expect(x).to.equal('pong?!!')
+          }, done, done)
+      }, done)
+
+    const socket = net.connect('9090')
+    socket.write(new Buffer('pong'))
+    socket.end()
   })
 
   it('listen, check for callback', (done) => {
