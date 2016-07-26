@@ -167,16 +167,14 @@ describe('tcpServer', () => {
   it('getAddrs preserves IPFS Id', (done) => {
     const mh = multiaddr('/ip4/127.0.0.1/tcp/9091/ipfs/Qmb6owHp6eaWArVbcJJbQSyifyJBttMMjYV76N2hMbf5Vw')
     const server = tcpServer(mh)
-    const sub = server.connections
-            .subscribe(() => {
-              sub.unsubscribe()
-            }, done)
+    const sub = server.connections.subscribe()
 
     server.getAddrs()
       .toArray()
       .subscribe((multiaddrs) => {
         expect(multiaddrs.length).to.equal(1)
         expect(multiaddrs[0]).to.deep.equal(mh)
+        sub.unsubscribe()
       }, done, done)
   })
 
@@ -184,90 +182,17 @@ describe('tcpServer', () => {
     const ma = multiaddr('/ip4/127.0.0.1/tcp/9090')
 
     it('get observed addrs', (done) => {
-      var dialerObsAddrs
-      var listenerObsAddrs
+      const server = tcpServer(ma)
+      const sub = server.connections.subscribe()
 
-      const listener = tcp.createListener((conn) => {
-        expect(conn).to.exist
-        conn.getObservedAddrs((err, addrs) => {
-          expect(err).to.not.exist
-          dialerObsAddrs = addrs
-          conn.end()
-        })
-      })
-
-      listener.listen(ma, () => {
-        const conn = tcp.dial(ma)
-
-        conn.resume()
-        conn.on('end', () => {
-          conn.getObservedAddrs((err, addrs) => {
-            expect(err).to.not.exist
-            listenerObsAddrs = addrs
-            conn.end()
-
-            listener.close(() => {
-              expect(listenerObsAddrs[0]).to.deep.equal(ma)
-              expect(dialerObsAddrs.length).to.equal(1)
-              done()
-            })
-          })
-        })
-      })
-    })
-
-    it('get Peer Info', (done) => {
-      const listener = tcp.createListener((conn) => {
-        expect(conn).to.exist
-        conn.getPeerInfo((err, peerInfo) => {
-          expect(err).to.exist
-          expect(peerInfo).to.not.exist
-          conn.end()
-        })
-      })
-
-      listener.listen(ma, () => {
-        const conn = tcp.dial(ma)
-
-        conn.resume()
-        conn.on('end', () => {
-          conn.getPeerInfo((err, peerInfo) => {
-            expect(err).to.exist
-            expect(peerInfo).to.not.exist
-            conn.end()
-
-            listener.close(done)
-          })
-        })
-      })
-    })
-
-    it('set Peer Info', (done) => {
-      const listener = tcp.createListener((conn) => {
-        expect(conn).to.exist
-        conn.setPeerInfo('batatas')
-        conn.getPeerInfo((err, peerInfo) => {
-          expect(err).to.not.exist
-          expect(peerInfo).to.equal('batatas')
-          conn.end()
-        })
-      })
-
-      listener.listen(ma, () => {
-        const conn = tcp.dial(ma)
-
-        conn.resume()
-        conn.on('end', () => {
-          conn.setPeerInfo('arroz')
-          conn.getPeerInfo((err, peerInfo) => {
-            expect(err).to.not.exist
-            expect(peerInfo).to.equal('arroz')
-            conn.end()
-
-            listener.close(done)
-          })
-        })
-      })
+      server.getObservedAddrs()
+        .toArray()
+        .subscribe((multiaddrs) => {
+          expect(multiaddrs.length).to.equal(1)
+          expect(multiaddrs[0]).to.deep.equal(ma)
+          sub.unsubscribe()
+          done()
+        }, done)
     })
   })
 })
