@@ -51,16 +51,12 @@ module.exports = function tcpServer (opts) {
     }
   })
 
-  return {
-    connections,
-    getObservedAddrs () {
-      return rawAddr.map(getMultiaddr)
-    },
-    getAddrs () {
-      return rawAddr
-        .mergeMap((addr) => getAddrs(address, addr))
-    }
+  connections.getObservedAddrs = () => rawAddr.map(getMultiaddr)
+  connections.getAddrs = () => {
+    return rawAddr.mergeMap((addr) => getAddrs(address, addr))
   }
+
+  return connections
 }
 
 function toListenAddr (ma) {

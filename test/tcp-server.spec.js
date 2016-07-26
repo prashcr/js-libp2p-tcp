@@ -13,7 +13,7 @@ describe('tcpServer', () => {
     const mh = multiaddr('/ip4/127.0.0.1/tcp/9090')
 
     const server = tcpServer(mh)
-    const sub = server.connections
+    const sub = server
             .subscribe((conn) => {
               conn
                 .map((x) => x + '?')
@@ -34,7 +34,7 @@ describe('tcpServer', () => {
     const mh = multiaddr('/ip4/127.0.0.1/tcp/9090/ipfs/Qmb6owHp6eaWArVbcJJbQSyifyJBttMMjYV76N2hMbf5Vw')
 
     const server = tcpServer(mh)
-    const sub = server.connections
+    const sub = server
             .subscribe((conn) => {
               conn
                 .map((x) => x + '?')
@@ -52,7 +52,7 @@ describe('tcpServer', () => {
   it('listen on port 0', (done) => {
     const mh = multiaddr('/ip4/127.0.0.1/tcp/0')
     const server = tcpServer(mh)
-    const sub = server.connections
+    const sub = server
             .subscribe((conn) => {
               conn
                 .map((x) => x + '?')
@@ -74,7 +74,7 @@ describe('tcpServer', () => {
   it('listen on IPv6 addr', (done) => {
     const mh = multiaddr('/ip6/::/tcp/9090')
     const server = tcpServer(mh)
-    const sub = server.connections
+    const sub = server
             .subscribe((conn) => {
               conn
                 .map((x) => x + '?')
@@ -92,7 +92,7 @@ describe('tcpServer', () => {
   it('listen on any Interface', (done) => {
     const mh = multiaddr('/ip4/0.0.0.0/tcp/9090')
     const server = tcpServer(mh)
-    const sub = server.connections
+    const sub = server
             .subscribe((conn) => {
               conn
                 .map((x) => x + '?')
@@ -110,7 +110,7 @@ describe('tcpServer', () => {
   it('getAddrs', (done) => {
     const mh = multiaddr('/ip4/127.0.0.1/tcp/9090')
     const server = tcpServer(mh)
-    const sub = server.connections.subscribe()
+    const sub = server.subscribe()
 
     server.getAddrs()
       .toArray()
@@ -124,7 +124,7 @@ describe('tcpServer', () => {
   it('getAddrs on port 0 listen', (done) => {
     const mh = multiaddr('/ip4/127.0.0.1/tcp/0')
     const server = tcpServer(mh)
-    const sub = server.connections.subscribe()
+    const sub = server.subscribe()
 
     server.getAddrs()
       .toArray()
@@ -137,7 +137,7 @@ describe('tcpServer', () => {
   it('getAddrs from listening on 0.0.0.0', (done) => {
     const mh = multiaddr('/ip4/0.0.0.0/tcp/9090')
     const server = tcpServer(mh)
-    const sub = server.connections.subscribe()
+    const sub = server.subscribe()
 
     server.getAddrs()
       .toArray()
@@ -151,7 +151,7 @@ describe('tcpServer', () => {
   it('getAddrs from listening on 0.0.0.0 and port 0', (done) => {
     const mh = multiaddr('/ip4/0.0.0.0/tcp/0')
     const server = tcpServer(mh)
-    const sub = server.connections
+    const sub = server
             .subscribe(() => {
               sub.unsubscribe()
             }, done)
@@ -167,7 +167,7 @@ describe('tcpServer', () => {
   it('getAddrs preserves IPFS Id', (done) => {
     const mh = multiaddr('/ip4/127.0.0.1/tcp/9091/ipfs/Qmb6owHp6eaWArVbcJJbQSyifyJBttMMjYV76N2hMbf5Vw')
     const server = tcpServer(mh)
-    const sub = server.connections.subscribe()
+    const sub = server.subscribe()
 
     server.getAddrs()
       .toArray()
@@ -183,7 +183,7 @@ describe('tcpServer', () => {
 
     it('get observed addrs', (done) => {
       const server = tcpServer(ma)
-      const sub = server.connections.subscribe()
+      const sub = server.subscribe()
 
       server.getObservedAddrs()
         .toArray()

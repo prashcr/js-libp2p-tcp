@@ -18,7 +18,7 @@ describe('tcpSocket', () => {
     beforeEach((done) => {
       const openObserver = new Rx.Subject()
       server = tcpServer({address: ma, openObserver})
-      sub = server.connections
+      sub = server
         .subscribe((socket) => {
           socket.subscribe((msg) => {
             socket.next(msg.toString() + '!')
@@ -69,7 +69,7 @@ describe('tcpSocket', () => {
     const ma = multiaddr('/ip6/::/tcp/9066')
 
     const server = tcpServer(ma)
-    const sub = server.connections
+    const sub = server
       .subscribe((socket) => {
         socket.subscribe((msg) => {
           socket.next(msg.toString() + '?')
@@ -91,7 +91,7 @@ describe('tcpSocket', () => {
     const closed = () => ++count === 2 ? finish() : null
 
     const ma = multiaddr('/ip6/::/tcp/9067')
-    const listener = tcpServer(ma).connections
+    const listener = tcpServer(ma)
             .subscribe((socket) => {
               socket.subscribe(null, null, closed)
               socket.unsubscribe()
@@ -112,7 +112,7 @@ describe('tcpSocket', () => {
     const closed = () => ++count === 2 ? finish() : null
 
     const ma = multiaddr('/ip6/::/tcp/9067')
-    const listener = tcpServer(ma).connections
+    const listener = tcpServer(ma)
             .subscribe((socket) => {
               socket.subscribe(null, null, closed)
             })
