@@ -42,7 +42,7 @@
     "mafmt": "^2.1.0",
     "multiaddr": "^2.0.2",
     "rxjs": "^5.0.0-beta.10",
-    "rxjs.node": "*"
+    "rxjs.node": "^0.2.0"
   },
   "contributors": [
     "David Dias <daviddias.p@gmail.com>",
