@@ -2,31 +2,19 @@
 'use strict'
 
 const expect = require('chai').expect
-const TCP = require('../src')
 const net = require('net')
 const multiaddr = require('multiaddr')
-const Connection = require('interface-connection').Connection
-const createTcpServer = require('../src/tcp-server')
+const Rx = require('rxjs/Rx')
 
-describe('instantiate the transport', () => {
-  it('create', (done) => {
-    const tcp = new TCP()
-    expect(tcp).to.exist
-    done()
-  })
+const tcp = require('../src')
+const tcpServer = tcp.tcpServer
+const tcpSocket = tcp.tcpSocket
 
-  it('create without new', (done) => {
-    const tcp = TCP()
-    expect(tcp).to.exist
-    done()
-  })
-})
-
-describe.only('listen', () => {
+describe('listen', () => {
   it('simple', (done) => {
     const mh = multiaddr('/ip4/127.0.0.1/tcp/9090')
 
-    const server = createTcpServer(mh)
+    const server = tcpServer(mh)
     const sub = server.connections
       .subscribe((conn) => {
         conn
@@ -47,7 +35,7 @@ describe.only('listen', () => {
   it('listen on addr with /ipfs/QmHASH', (done) => {
     const mh = multiaddr('/ip4/127.0.0.1/tcp/9090/ipfs/Qmb6owHp6eaWArVbcJJbQSyifyJBttMMjYV76N2hMbf5Vw')
 
-    const server = createTcpServer(mh)
+    const server = tcpServer(mh)
     const sub = server.connections
       .subscribe((conn) => {
         conn
@@ -65,7 +53,7 @@ describe.only('listen', () => {
 
   it('listen on port 0', (done) => {
     const mh = multiaddr('/ip4/127.0.0.1/tcp/0')
-    const server = createTcpServer(mh)
+    const server = tcpServer(mh)
     const sub = server.connections
       .subscribe((conn) => {
         conn
@@ -87,7 +75,7 @@ describe.only('listen', () => {
 
   it('listen on IPv6 addr', (done) => {
     const mh = multiaddr('/ip6/::/tcp/9090')
-    const server = createTcpServer(mh)
+    const server = tcpServer(mh)
     const sub = server.connections
       .subscribe((conn) => {
         conn
@@ -105,7 +93,7 @@ describe.only('listen', () => {
 
   it('listen on any Interface', (done) => {
     const mh = multiaddr('/ip4/0.0.0.0/tcp/9090')
-    const server = createTcpServer(mh)
+    const server = tcpServer(mh)
     const sub = server.connections
       .subscribe((conn) => {
         conn
@@ -123,54 +111,48 @@ describe.only('listen', () => {
 
   it('getAddrs', (done) => {
     const mh = multiaddr('/ip4/127.0.0.1/tcp/9090')
-    const server = createTcpServer(mh)
-    const sub = server.connections
-            .subscribe(() => {
-              sub.unsubscribe()
-            }, done)
+    const server = tcpServer(mh)
+    const sub = server.connections.subscribe()
 
     server.getAddrs()
       .toArray()
       .subscribe((multiaddrs) => {
         expect(multiaddrs.length).to.equal(1)
         expect(multiaddrs[0]).to.deep.equal(mh)
+        sub.unsubscribe()
       }, done, done)
   })
 
   it('getAddrs on port 0 listen', (done) => {
     const mh = multiaddr('/ip4/127.0.0.1/tcp/0')
-    const server = createTcpServer(mh)
-    const sub = server.connections
-            .subscribe(() => {
-              sub.unsubscribe()
-            }, done)
+    const server = tcpServer(mh)
+    const sub = server.connections.subscribe()
 
     server.getAddrs()
       .toArray()
       .subscribe((multiaddrs) => {
         expect(multiaddrs.length).to.equal(1)
+        sub.unsubscribe()
       }, done, done)
   })
 
   it('getAddrs from listening on 0.0.0.0', (done) => {
     const mh = multiaddr('/ip4/0.0.0.0/tcp/9090')
-    const server = createTcpServer(mh)
-    const sub = server.connections
-            .subscribe(() => {
-              sub.unsubscribe()
-            }, done)
+    const server = tcpServer(mh)
+    const sub = server.connections.subscribe()
 
     server.getAddrs()
       .toArray()
       .subscribe((multiaddrs) => {
         expect(multiaddrs.length > 0).to.equal(true)
         expect(multiaddrs[0].toString().indexOf('0.0.0.0')).to.equal(-1)
+        sub.unsubscribe()
       }, done, done)
   })
 
   it('getAddrs from listening on 0.0.0.0 and port 0', (done) => {
     const mh = multiaddr('/ip4/0.0.0.0/tcp/0')
-    const server = createTcpServer(mh)
+    const server = tcpServer(mh)
     const sub = server.connections
             .subscribe(() => {
               sub.unsubscribe()
@@ -186,7 +168,7 @@ describe.only('listen', () => {
 
   it('getAddrs preserves IPFS Id', (done) => {
     const mh = multiaddr('/ip4/127.0.0.1/tcp/9091/ipfs/Qmb6owHp6eaWArVbcJJbQSyifyJBttMMjYV76N2hMbf5Vw')
-    const server = createTcpServer(mh)
+    const server = tcpServer(mh)
     const sub = server.connections
             .subscribe(() => {
               sub.unsubscribe()
@@ -202,60 +184,80 @@ describe.only('listen', () => {
 })
 
 describe('dial', () => {
-  let tcp
-  let listener
-  const ma = multiaddr('/ip4/127.0.0.1/tcp/9090')
+  describe('dial on IPv4', () => {
+    let server
+    let sub
+    const ma = multiaddr('/ip4/127.0.0.1/tcp/9090')
 
-  beforeEach((done) => {
-    tcp = new TCP()
-    listener = tcp.createListener((conn) => {
-      conn.pipe(conn)
+    beforeEach((done) => {
+      const openObserver = new Rx.Subject()
+      server = tcpServer({address: ma, openObserver})
+      sub = server.connections
+        .subscribe((socket) => {
+          socket.subscribe((msg) => {
+            socket.next(msg.toString() + '!')
+          })
+        })
+      openObserver.subscribe(() => done())
     })
-    listener.on('listening', done)
-    listener.listen(ma)
-  })
 
-  afterEach((done) => {
-    listener.close(done)
-  })
-
-  it('dial on IPv4', (done) => {
-    const conn = tcp.dial(ma)
-    conn.write('hey')
-    conn.end()
-    conn.on('data', (chunk) => {
-      expect(chunk.toString()).to.equal('hey')
+    afterEach(() => {
+      sub.unsubscribe()
     })
-    conn.on('end', done)
+
+    it('dial on IPv4', (done) => {
+      const subject = tcpSocket(ma)
+      subject.next('hey')
+      subject.subscribe((msg) => {
+        expect(msg).to.be.eql(Buffer('hey!'))
+        subject.unsubscribe()
+        done()
+      })
+    })
+
+    it('dial on IPv4 with IPFS Id', (done) => {
+      const ma = multiaddr('/ip4/127.0.0.1/tcp/9090/ipfs/Qmb6owHp6eaWArVbcJJbQSyifyJBttMMjYV76N2hMbf5Vw')
+      const subject = tcpSocket(ma)
+      subject.next('hey')
+      subject.subscribe((msg) => {
+        expect(msg).to.be.eql(Buffer('hey!'))
+        subject.unsubscribe()
+        done()
+      })
+    })
   })
 
   it('dial to non existent listener', (done) => {
-    const ma = multiaddr('/ip4/127.0.0.1/tcp/8989')
-    const conn = tcp.dial(ma)
-    conn.on('error', (err) => {
-      expect(err).to.exist
-      done()
-    })
+    const subject = tcpSocket(multiaddr('/ip4/127.0.0.1/tcp/8989'))
+    subject.subscribe(
+      null,
+      (err) => {
+        expect(err).to.exist
+        subject.unsubscribe()
+        done()
+      }
+    )
   })
 
   it('dial on IPv6', (done) => {
     const ma = multiaddr('/ip6/::/tcp/9066')
-    const listener = tcp.createListener((conn) => {
-      conn.pipe(conn)
-    })
-    listener.listen(ma, dialStep)
 
-    function dialStep () {
-      const conn = tcp.dial(ma)
-      conn.write('hey')
-      conn.end()
-      conn.on('data', (chunk) => {
-        expect(chunk.toString()).to.equal('hey')
+    const server = tcpServer(ma)
+    const sub = server.connections
+      .subscribe((socket) => {
+        socket.subscribe((msg) => {
+          socket.next(msg.toString() + '?')
+        })
       })
-      conn.on('end', () => {
-        listener.close(done)
-      })
-    }
+
+    const subject = tcpSocket(ma)
+    subject.next('hey')
+    subject.subscribe((msg) => {
+      expect(msg).to.be.eql(Buffer('hey?'))
+      sub.unsubscribe()
+      subject.unsubscribe()
+      done()
+    })
   })
 
   it('dial and destroy on listener', (done) => {
@@ -263,65 +265,43 @@ describe('dial', () => {
     const closed = () => ++count === 2 ? finish() : null
 
     const ma = multiaddr('/ip6/::/tcp/9067')
+    const listener = tcpServer(ma).connections
+            .subscribe((socket) => {
+              socket.subscribe(null, null, closed)
+              socket.unsubscribe()
+            })
 
-    const listener = tcp.createListener((conn) => {
-      conn.on('close', closed)
-      conn.destroy()
-    })
+    const dialer = tcpSocket(ma)
 
-    listener.listen(ma, dialStep)
-
-    function dialStep () {
-      const conn = tcp.dial(ma)
-      conn.on('close', closed)
-    }
+    dialer.subscribe(null, null, closed)
 
     function finish () {
-      listener.close(done)
+      listener.unsubscribe()
+      done()
     }
   })
 
   it('dial and destroy on dialer', (done) => {
     let count = 0
-    const destroyed = () => ++count === 2 ? finish() : null
+    const closed = () => ++count === 2 ? finish() : null
 
-    const ma = multiaddr('/ip6/::/tcp/9068')
+    const ma = multiaddr('/ip6/::/tcp/9067')
+    const listener = tcpServer(ma).connections
+            .subscribe((socket) => {
+              socket.subscribe(null, null, closed)
+            })
 
-    const listener = tcp.createListener((conn) => {
-      conn.on('close', () => {
-        console.log('closed on the listener socket')
-        destroyed()
-      })
-    })
+    const dialer = tcpSocket(ma)
 
-    listener.listen(ma, dialStep)
-
-    function dialStep () {
-      const conn = tcp.dial(ma)
-      conn.on('close', () => {
-        console.log('closed on the dialer socket')
-        destroyed()
-      })
-      conn.resume()
-      setTimeout(() => {
-        conn.destroy()
-      }, 10)
-    }
+    dialer.subscribe(null, null, closed)
+    setTimeout(() => {
+      dialer.unsubscribe()
+    }, 10)
 
     function finish () {
-      listener.close(done)
+      listener.unsubscribe()
+      done()
     }
-  })
-
-  it('dial on IPv4 with IPFS Id', (done) => {
-    const ma = multiaddr('/ip4/127.0.0.1/tcp/9090/ipfs/Qmb6owHp6eaWArVbcJJbQSyifyJBttMMjYV76N2hMbf5Vw')
-    const conn = tcp.dial(ma)
-    conn.write('hey')
-    conn.end()
-    conn.on('data', (chunk) => {
-      expect(chunk.toString()).to.equal('hey')
-    })
-    conn.on('end', done)
   })
 })
 
@@ -329,7 +309,7 @@ describe('filter addrs', () => {
   let tcp
 
   before(() => {
-    tcp = new TCP()
+    tcp = tcpServer()
   })
 
   it('filter valid addrs for this transport', (done) => {
@@ -359,7 +339,7 @@ describe('valid Connection', () => {
   let tcp
 
   beforeEach(() => {
-    tcp = new TCP()
+    tcp = tcpServer()
   })
 
   const ma = multiaddr('/ip4/127.0.0.1/tcp/9090')
@@ -457,13 +437,13 @@ describe.skip('turbolence', () => {
   it('listener - emits error on the other end is terminated abruptly', (done) => {})
 })
 
-describe('Connection wrap', () => {
+describe.skip('Connection wrap', () => {
   let tcp
   let listener
   const ma = multiaddr('/ip4/127.0.0.1/tcp/9090')
 
   beforeEach((done) => {
-    tcp = new TCP()
+    tcp = tcpServer()
     listener = tcp.createListener((conn) => {
       conn.pipe(conn)
     })

@@ -2,26 +2,32 @@
 
 const net = require('net')
 const Rx = require('rxjs/Rx')
-const contains = require('lodash.contains')
+Rx.node = require('rxjs.node')
 const multiaddr = require('multiaddr')
 const Address6 = require('ip-address').Address6
+const contains = require('lodash.contains')
 const os = require('os')
 
 const IPFS_CODE = 421
 
-module.exports = function createTcpServer (ma) {
+module.exports = function tcpServer (opts) {
+  let address
+  if (opts.constructor.name === 'Multiaddr') {
+    address = opts
+    opts = {}
+  } else {
+    address = opts.address
+  }
+
   const rawAddr = new Rx.Subject()
 
   const connections = Rx.Observable.create((observer) => {
     let server = net.createServer((socket) => {
-      observer.next(Rx.Observable.create((socketOb) => {
-        socket.on('error', (err) => socketOb.error(err))
-        socket.on('close', () => socketOb.complete())
-        socket.on('data', (chunk) => socketOb.next(chunk))
-
-        return () => {
-          socket.end()
-          socket = null
+      observer.next(new Rx.node.StreamSubject({
+        dataEvent: 'data',
+        endEvent: 'close',
+        createStream () {
+          return socket
         }
       }))
     })
@@ -31,7 +37,10 @@ module.exports = function createTcpServer (ma) {
       observer.complete()
     })
 
-    server.listen(toListenAddr(ma), () => {
+    server.listen(toListenAddr(address), () => {
+      if (opts.openObserver) {
+        opts.openObserver.next(server.address())
+      }
       rawAddr.next(server.address())
       rawAddr.complete()
     })
@@ -49,7 +58,7 @@ module.exports = function createTcpServer (ma) {
     },
     getAddrs () {
       return rawAddr
-        .mergeMap((addr) => getAddrs(ma, addr))
+        .mergeMap((addr) => getAddrs(address, addr))
     }
   }
 }
